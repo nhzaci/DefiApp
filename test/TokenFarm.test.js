@@ -59,13 +59,11 @@ contract('TokenFarm', ([owner, investor]) => {
 
   describe('Farming tokens', async () => {
     it('rewards investors who are staking mDai tokens', async () => {
-      let result
-
       // Check investor balance before staking
-      result = await daiToken.balanceOf(investor)
+      const investorInitialDaiBalance = await daiToken.balanceOf(investor)
 
       assert.equal(
-        result.toString(),
+        investorInitialDaiBalance.toString(),
         tokens('100'),
         'Investor Mock DAI wallet correct before staking'
       )
@@ -114,6 +112,63 @@ contract('TokenFarm', ([owner, investor]) => {
         investorHasStaked.toString(),
         'true',
         'Investor has staked status is correct after staking'
+      )
+
+      // Issue tokens
+      await tokenFarm.issueTokens({ from: owner })
+
+      // Ensure investor received tokens after issuing
+      const investorBalanceAfterIssue = await dappToken.balanceOf(investor)
+      assert.equal(
+        investorBalanceAfterIssue.toString(),
+        investorInitialDaiBalance.toString(),
+        'Investor has received balance of dai equal to their staking balance'
+      )
+
+      // Ensure other people cannot issue tokens
+      await tokenFarm.issueTokens({ from: investor }).should.be.rejected
+
+      // Unstake tokens
+      await tokenFarm.unstakeTokens({ from: investor })
+
+      // Check results after unstaking
+      const investorDaiBalanceAfterUnstaking = await daiToken.balanceOf(
+        investor
+      )
+      assert.equal(
+        investorDaiBalanceAfterUnstaking.toString(),
+        investorInitialDaiBalance.toString(),
+        'Investor Mock DAI balance correct after unstaking'
+      )
+
+      // Check token farm balance is correct
+      const tokenFarmDaiBalanceAfterUserUnstake = await daiToken.balanceOf(
+        tokenFarm.address
+      )
+      assert.equal(
+        tokenFarmDaiBalanceAfterUserUnstake.toString(),
+        tokens('0'),
+        'Token Farm Mock DAI balance correct after unstaking'
+      )
+
+      // Check user staking balance is 0 in token farm
+      const tokenFarmStakingBalanceAfterUnstake = await tokenFarm.stakingBalance(
+        investor
+      )
+      assert.equal(
+        tokenFarmStakingBalanceAfterUnstake.toString(),
+        tokens('0'),
+        'Investor staking balance 0 after unstaking'
+      )
+
+      // Check user not staking anymore
+      const tokenFarmUserIsStakingAfterUnstake = await tokenFarm.isStaking(
+        investor
+      )
+      assert.equal(
+        tokenFarmUserIsStakingAfterUnstake.toString(),
+        'false',
+        'Investor is not staking anymore in isStaking map after unstaking'
       )
     })
   })
